@@ -6,16 +6,27 @@ import sys
 
 def run_scan(scan_name, command):
     """
-    Execute an Nmap command and return the XML output.
+    Execute an Nmap command, measure its execution time,
+    and return the XML output.
     """
     print(f"\n=== {scan_name} ===")
     print("Command: " + " ".join(command))
+    start_time = time.time()
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-        return result.stdout
+        xml_output = result.stdout
     except subprocess.CalledProcessError as e:
         print(f"Error running {scan_name}: {e.stderr}", file=sys.stderr)
-        return None
+        xml_output = None
+    end_time = time.time()
+    elapsed = end_time - start_time
+
+    # If the scan finishes before 30 seconds, proceed immediately.
+    if elapsed < 30:
+        print(f"Scan finished in {elapsed:.2f} seconds. Proceeding to next scan immediately.")
+    else:
+        print(f"Scan took {elapsed:.2f} seconds.")
+    return xml_output
 
 def parse_and_print(xml_output):
     """
@@ -36,6 +47,7 @@ def parse_and_print(xml_output):
         status_elem = host.find('status')
         state = status_elem.attrib.get('state') if status_elem is not None else "unknown"
         print(f"Host: {ip} (Status: {state})")
+
         ports_elem = host.find('ports')
         if ports_elem is not None:
             for port in ports_elem.findall('port'):
@@ -55,7 +67,7 @@ def main():
         print("Target cannot be empty. Exiting.")
         sys.exit(1)
 
-    # Define the list of scans to run one time.
+    # Define the scans to run once.
     scans = [
         ("Ping Scan (Host Discovery)", ["nmap", "-sn", "-oX", "-", target]),
         ("TCP SYN Scan (Port Scanning)", ["nmap", "-sS", "-oX", "-", target]),
@@ -67,13 +79,10 @@ def main():
 
     print("\nStarting scans on target:", target)
 
-    for idx, (scan_name, command) in enumerate(scans):
+    # Run each scan one time.
+    for scan_name, command in scans:
         xml_output = run_scan(scan_name, command)
         parse_and_print(xml_output)
-        # If not the last scan, wait for 30 seconds before running the next one.
-        if idx < len(scans) - 1:
-            print("\nWaiting for 30 seconds before the next scan...\n")
-            time.sleep(30)
 
     print("\nAll scans completed. Exiting.")
 
