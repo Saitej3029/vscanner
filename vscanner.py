@@ -30,16 +30,21 @@ def parse_and_print(xml_output):
     """
     Parse the XML output from Nmap and print a summary of hosts and ports.
     """
-    if xml_output is None:
+    if not xml_output:
+        print("No output received from the scan.", flush=True)
         return
 
     try:
         root = ET.fromstring(xml_output)
     except ET.ParseError as e:
-        print("Error parsing XML:", e, file=sys.stderr, flush=True)
+        print("Error parsing XML:", e, flush=True)
         return
 
-    for host in root.findall('host'):
+    hosts = root.findall('host')
+    if not hosts:
+        print("No hosts found in the scan results.", flush=True)
+
+    for host in hosts:
         addr_elem = host.find('address')
         ip = addr_elem.attrib.get('addr') if addr_elem is not None else "Unknown"
         status_elem = host.find('status')
