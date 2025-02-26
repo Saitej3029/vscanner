@@ -7,9 +7,9 @@ import sys
 def run_scan(scan_name, command):
     """
     Execute an Nmap command with a 30-second timeout.
-    If the scan doesn't finish within 30 seconds, abort and return None.
+    The XML output is captured and returned (without saving to a file).
     """
-    print(f"\n=== {scan_name} ===", flush=True)
+    print(f"\n--- Running: {scan_name} ---", flush=True)
     print("Command: " + " ".join(command), flush=True)
     try:
         start_time = time.time()
@@ -17,10 +17,10 @@ def run_scan(scan_name, command):
             command, capture_output=True, text=True, check=True, timeout=30
         )
         elapsed = time.time() - start_time
-        print(f"Scan finished in {elapsed:.2f} seconds.", flush=True)
+        print(f"Scan completed in {elapsed:.2f} seconds.", flush=True)
         return result.stdout
     except subprocess.TimeoutExpired:
-        print(f"Scan '{scan_name}' took longer than 30 seconds. Aborting and moving to next scan.", flush=True)
+        print(f"Scan '{scan_name}' exceeded 30 seconds. Skipping to next scan.", flush=True)
         return None
     except subprocess.CalledProcessError as e:
         print(f"Error running '{scan_name}': {e.stderr}", file=sys.stderr, flush=True)
@@ -28,40 +28,42 @@ def run_scan(scan_name, command):
 
 def parse_and_print(xml_output):
     """
-    Parse the XML output from Nmap and print a summary of hosts and ports.
+    Parse Nmap XML output and print a summary in plain language.
     """
     if not xml_output:
-        print("No output received from the scan.", flush=True)
+        print("No output received from this scan.", flush=True)
         return
 
     try:
         root = ET.fromstring(xml_output)
     except ET.ParseError as e:
-        print("Error parsing XML:", e, flush=True)
+        print("Error parsing XML output:", e, flush=True)
         return
 
     hosts = root.findall('host')
     if not hosts:
-        print("No hosts found in the scan results.", flush=True)
-
+        print("No hosts detected in the scan results.", flush=True)
     for host in hosts:
+        # Get the target's IP address
         addr_elem = host.find('address')
-        ip = addr_elem.attrib.get('addr') if addr_elem is not None else "Unknown"
+        ip = addr_elem.attrib.get('addr', "Unknown") if addr_elem is not None else "Unknown"
+        # Get the host status (e.g., up or down)
         status_elem = host.find('status')
-        state = status_elem.attrib.get('state') if status_elem is not None else "unknown"
-        print(f"Host: {ip} (Status: {state})", flush=True)
+        status = status_elem.attrib.get('state', "unknown") if status_elem is not None else "unknown"
+        print(f"Target {ip} is {status}.", flush=True)
+        # Print port information, if available
         ports_elem = host.find('ports')
         if ports_elem is not None:
             for port in ports_elem.findall('port'):
-                port_id = port.attrib.get('portid')
-                protocol = port.attrib.get('protocol')
+                port_id = port.attrib.get('portid', "unknown")
+                protocol = port.attrib.get('protocol', "unknown")
                 state_elem = port.find('state')
-                port_state = state_elem.attrib.get('state') if state_elem is not None else "unknown"
+                port_state = state_elem.attrib.get('state', "unknown") if state_elem is not None else "unknown"
                 service_elem = port.find('service')
-                service = service_elem.attrib.get('name') if service_elem is not None else "unknown"
-                print(f"  Port {port_id}/{protocol}: {port_state} (Service: {service})", flush=True)
+                service = service_elem.attrib.get('name', "unknown") if service_elem is not None else "unknown"
+                print(f" - Port {port_id}/{protocol} is {port_state} and running {service}.", flush=True)
         else:
-            print("  No ports found.", flush=True)
+            print(" - No open ports found.", flush=True)
 
 def main():
     target = input("Enter the target IP address or hostname: ").strip()
@@ -69,7 +71,7 @@ def main():
         print("Target cannot be empty. Exiting.", flush=True)
         sys.exit(1)
 
-    # Define the scans to run once.
+    # List of scans to run (each using XML output to stdout)
     scans = [
         ("Ping Scan (Host Discovery)", ["nmap", "-sn", "-oX", "-", target]),
         ("TCP SYN Scan (Port Scanning)", ["nmap", "-sS", "-oX", "-", target]),
@@ -79,15 +81,15 @@ def main():
         ("Comprehensive Scan (Aggressive Mode)", ["nmap", "-A", "-oX", "-", target])
     ]
 
-    print("\nStarting scans on target:", target, flush=True)
+    print(f"\nStarting scans on target: {target}", flush=True)
 
-    # Run each scan one time.
     for scan_name, command in scans:
         xml_output = run_scan(scan_name, command)
+        print("\nResults:", flush=True)
         parse_and_print(xml_output)
-        print("\n", flush=True)
-
-    print("All scans completed. Exiting.", flush=True)
+        print("-" * 50, flush=True)
+    
+    print("\nAll scans completed. Exiting.", flush=True)
 
 if __name__ == "__main__":
     main()
