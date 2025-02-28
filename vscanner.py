@@ -5,7 +5,6 @@ import xml.etree.ElementTree as ET
 import sys
 import re
 import shutil
-import os
 
 def validate_target(target):
     """Validate if target is a valid IP or hostname."""
@@ -22,10 +21,6 @@ def check_nmap_installed():
     """Check if Nmap is installed."""
     return shutil.which("nmap") is not None
 
-def check_root():
-    """Check if running as root."""
-    return os.geteuid() == 0
-
 def run_scan(scan_name, command):
     """Execute an Nmap command and return XML output."""
     timeout = 30
@@ -38,7 +33,6 @@ def run_scan(scan_name, command):
         )
         elapsed = time.time() - start_time
         print(f"Scan completed in {elapsed:.2f} seconds.")
-        print("Raw XML Output (first 500 chars):\n", result.stdout[:500])  # Debug
         return result.stdout
     except subprocess.TimeoutExpired:
         print(f"Scan '{scan_name}' exceeded {timeout} seconds. Skipping.")
@@ -89,9 +83,6 @@ def main():
         print("Error: Nmap is not installed. Please install Nmap first.")
         sys.exit(1)
 
-    if not check_root():
-        print("Warning: Some scans (e.g., -sS, -O, -A) require root privileges. Run with sudo for full results.")
-
     print("WARNING: Ensure you have permission to scan the target network.")
     target = input("Enter the target IP address or hostname: ").strip()
     validated_target = validate_target(target)
@@ -120,3 +111,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
