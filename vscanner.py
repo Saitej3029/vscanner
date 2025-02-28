@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+A#!/usr/bin/env python3
 import subprocess
 import time
 import xml.etree.ElementTree as ET
@@ -109,5 +109,5 @@ def main():
     
     print("\nAll scans completed.")
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
